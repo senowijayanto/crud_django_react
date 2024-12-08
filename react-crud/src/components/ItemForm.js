@@ -3,66 +3,131 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 
 const ItemForm = () => {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const { id } = useParams();
+  const [itemData, setItemData] = useState({
+    name: "",
+    description: "",
+    category: "", // This will store the selected category
+  });
+  const [categories, setCategories] = useState([]); // List of categories
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { id } = useParams(); // If editing an existing item, fetch the id from URL
 
+  // Fetch categories when the component mounts
   useEffect(() => {
+    axios
+      .get("http://localhost:8000/api/categories/") // Change this URL to match your Django API endpoint
+      .then((response) => {
+        setCategories(response.data); // Assuming response.data is an array of category objects
+      })
+      .catch((err) => {
+        setError("Failed to fetch categories");
+      });
+
+    // If editing an existing item, fetch item details by id
     if (id) {
-      setIsEditing(true);
       axios
-        .get(`http://127.0.0.1:8000/api/items/${id}/`)
+        .get(`http://localhost:8000/api/items/${id}/`) // Adjust URL as per your API
         .then((response) => {
-          setName(response.data.name);
-          setCategory(response.data.category.id);
+          const item = response.data;
+          setItemData({
+            name: item.name,
+            description: item.description,
+            category: item.category.id, // Assuming category is an object with 'id'
+          });
         })
-        .catch((error) => console.error("There was an error fetching the item!", error));
+        .catch((err) => {
+          setError("Failed to fetch item details");
+        });
     }
   }, [id]);
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const data = { name, category };
-    const url = isEditing
-      ? `http://127.0.0.1:8000/api/items/${id}/`
-      : "http://127.0.0.1:8000/api/items/";
+  // Handle form field changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setItemData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
 
-    const method = isEditing ? "put" : "post";
+  // Handle form submission
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-    axios[method](url, data)
-      .then(() => navigate("/items"))
-      .catch((error) => console.error("There was an error saving the item!", error));
+    const dataToSubmit = {
+      name: itemData.name,
+      description: itemData.description,
+      category: itemData.category,
+    };
+
+    const apiUrl = id
+      ? `http://localhost:8000/api/items/${id}/` // Update item
+      : "http://localhost:8000/api/items/"; // Create new item
+
+    const method = id ? "PUT" : "POST";
+
+    axios
+      .request({
+        url: apiUrl,
+        method: method,
+        data: dataToSubmit,
+      })
+      .then(() => {
+        navigate("/items"); // Redirect to the item list page
+      })
+      .catch((err) => {
+        setError("Failed to save item");
+      });
   };
 
   return (
     <div>
-      <h2>{isEditing ? "Edit Item" : "Create Item"}</h2>
+      <h2>{id ? "Edit Item" : "Create Item"}</h2>
+      {error && <p>{error}</p>}
+
       <form onSubmit={handleSubmit}>
         <div>
-          <label>Name</label>
+          <label htmlFor="name">Name:</label>
           <input
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            id="name"
+            name="name"
+            value={itemData.name}
+            onChange={handleChange}
             required
           />
         </div>
+
         <div>
-          <label>Category</label>
+          <label htmlFor="description">Description:</label>
+          <textarea
+            id="description"
+            name="description"
+            value={itemData.description}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="category">Category:</label>
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            id="category"
+            name="category"
+            value={itemData.category}
+            onChange={handleChange}
             required
           >
-            {/* Populate with actual categories from the API */}
-            {/* Example below */}
-            <option value="1">Furniture</option>
-            <option value="2">Electronics</option>
+            <option value="">Select a category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
           </select>
         </div>
-        <button type="submit">{isEditing ? "Update" : "Create"}</button>
+
+        <button type="submit">{id ? "Update Item" : "Create Item"}</button>
       </form>
     </div>
   );

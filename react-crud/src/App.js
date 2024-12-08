@@ -39,6 +39,7 @@ function App() {
           <Route path="/categories/edit/:id" element={<CategoryForm />} />
           <Route path="/items" element={<ItemList />} />
           <Route path="/items/create" element={<ItemForm />} />
+          <Route path="/items/edit/:id" element={<ItemForm />} />
         </Routes>
       </div>
     </Router>
